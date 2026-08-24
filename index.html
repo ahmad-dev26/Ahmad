@@ -621,9 +621,77 @@ footer{
 }
 .backup-actions button:hover{background:var(--stone-dim);}
 
+.site-ad{
+  margin-top:14px;
+  padding-top:14px;
+  border-top:1px dashed var(--line);
+  font-family:var(--data);
+  font-size:12px;
+  color:#8A8577;
+}
+.site-ad a{
+  color:var(--gold);
+  font-weight:700;
+  text-decoration:none;
+}
+.site-ad a:hover{text-decoration:underline;}
+
+/* ---------- زرار المطلوب العائم ---------- */
+.requests-fab{
+  position:fixed;
+  top:14px;
+  left:14px;
+  z-index:60;
+  display:flex;
+  align-items:center;
+  gap:7px;
+  background:var(--gold);
+  color:#fff;
+  border:none;
+  border-radius:22px;
+  padding:9px 16px;
+  font-family:var(--body);
+  font-weight:700;
+  font-size:13px;
+  box-shadow:0 8px 20px -8px rgba(0,0,0,.5);
+  transition:transform .15s ease, background .15s ease;
+}
+.requests-fab:hover{background:#9c7a24; transform:translateY(-2px);}
+.requests-fab:active{transform:scale(.96);}
+.requests-fab-icon{width:17px; height:17px; flex-shrink:0;}
+.requests-fab-icon svg{width:100%; height:100%;}
+.requests-fab-badge{
+  min-width:18px; height:18px;
+  background:var(--brick);
+  color:#fff;
+  border-radius:10px;
+  font-size:10px;
+  font-weight:700;
+  display:none;
+  align-items:center; justify-content:center;
+  padding:0 5px;
+  font-family:var(--data);
+}
+.req-match{
+  font-family:var(--data);
+  font-size:12px;
+  font-weight:700;
+  color:var(--brick);
+  background:#FBEDE9;
+  border-radius:4px;
+  padding:6px 10px;
+  margin-bottom:10px;
+  display:inline-block;
+}
+
 </style>
 </head>
 <body>
+<button type="button" id="requestsFab" class="requests-fab" aria-label="المطلوب - طلبات العملاء">
+  <span class="requests-fab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a5 5 0 0 0-5 5v3.5c0 .8-.3 1.6-.9 2.2L4.5 15.5A1 1 0 0 0 5.2 17h13.6a1 1 0 0 0 .7-1.7l-1.6-1.8c-.6-.6-.9-1.4-.9-2.2V8a5 5 0 0 0-5-5Z"/><path d="M9.5 20a2.5 2.5 0 0 0 5 0"/></svg></span>
+  <span>المطلوب</span>
+  <span class="requests-fab-badge" id="requestsFabBadge">0</span>
+</button>
 <div id="app"></div>
 <script>
 /* ===========================================================
@@ -666,7 +734,7 @@ const SEED = [
 
 /* ---------- الحالة ---------- */
 let listings = loadListings();
-let state = { view:'home', cat:null, filter:'all', homeQ:'' };
+let state = { view:'home', cat:null, filter:'all', homeQ:'', reqFilter:'all', reqQ:'' };
 
 function loadListings(){
   try{
@@ -678,6 +746,57 @@ function loadListings(){
 }
 function saveListings(){
   try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(listings)); }catch(e){}
+}
+
+/* ---------- المطلوب (طلبات العملاء) ---------- */
+const REQUESTS_STORAGE_KEY = 'almalek_requests_v1';
+
+const REQUEST_TYPES = [
+  {value:'flats_sale',      label:'شقق تمليك',                cat:'flats', type:'sale'},
+  {value:'flats_rent',      label:'شقق إيجار',                 cat:'flats', type:'rent'},
+  {value:'houses',          label:'بيوت (تمليك وإيجار)',       cat:'houses', type:null},
+  {value:'shops_sale',      label:'محلات تمليك',               cat:'shops', type:'sale'},
+  {value:'shops_rent',      label:'محلات إيجار',                cat:'shops', type:'rent'},
+  {value:'land_agri',       label:'أراضي زراعية',               cat:'land', type:'agricultural'},
+  {value:'land_cordon',     label:'أراضي كردون',                cat:'land', type:'cordon'},
+  {value:'land_near_cordon',label:'أراضي زراعية بجوار الكردون', cat:'land', type:'near_cordon'}
+];
+
+let requests = loadRequests();
+
+function loadRequests(){
+  try{
+    const raw = localStorage.getItem(REQUESTS_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  }catch(e){ return []; }
+}
+function saveRequests(){
+  try{ localStorage.setItem(REQUESTS_STORAGE_KEY, JSON.stringify(requests)); }catch(e){}
+}
+
+/* عقارات متاحة دلوقتي تطابق طلب عميل معيّن */
+function matchingListingsForRequest(r){
+  const rt = REQUEST_TYPES.find(t => t.value === r.reqType);
+  if(!rt) return [];
+  return listings.filter(l => {
+    if(l.cat !== rt.cat) return false;
+    if(rt.type && l.type !== rt.type) return false;
+    const a = (l.region || '').trim(), b = (r.region || '').trim();
+    if(a && b && !a.includes(b) && !b.includes(a)) return false;
+    return true;
+  });
+}
+
+/* طلبات عملاء مطابقة لعقار جديد اتضاف */
+function matchingRequestsForListing(l){
+  return requests.filter(r => {
+    const rt = REQUEST_TYPES.find(t => t.value === r.reqType);
+    if(!rt || rt.cat !== l.cat) return false;
+    if(rt.type && l.type !== rt.type) return false;
+    const a = (l.region || '').trim(), b = (r.region || '').trim();
+    if(a && b && !a.includes(b) && !b.includes(a)) return false;
+    return true;
+  });
 }
 
 /* ---------- أدوات مساعدة ---------- */
@@ -710,23 +829,41 @@ function homeSearchResults(){
 }
 
 /* ---------- التوجيه بين الشاشات ---------- */
-function goHome(){ state = {view:'home', cat:null, filter:'all', homeQ:''}; render(); }
-function goCategory(cat){ state = {view:'category', cat, filter:'all', homeQ:''}; render(); window.scrollTo({top:0}); }
+function goHome(){ state = {view:'home', cat:null, filter:'all', homeQ:'', reqFilter:'all', reqQ:''}; render(); }
+function goCategory(cat){ state = {view:'category', cat, filter:'all', homeQ:'', reqFilter:'all', reqQ:''}; render(); window.scrollTo({top:0}); }
+function goRequests(){ state = {view:'requests', cat:null, filter:'all', homeQ:'', reqFilter:'all', reqQ:''}; render(); window.scrollTo({top:0}); }
 
 /* ---------- العرض الرئيسي ---------- */
 function render(){
   const app = document.getElementById('app');
-  app.innerHTML = topbarHTML() + (state.view === 'home' ? homeHTML() : categoryHTML()) + footerHTML();
+  const body = state.view === 'home' ? homeHTML() : (state.view === 'requests' ? requestsHTML() : categoryHTML());
+  app.innerHTML = topbarHTML() + body + footerHTML();
+  updateRequestsFabBadge();
+}
+
+function updateRequestsFabBadge(){
+  const badge = document.getElementById('requestsFabBadge');
+  if(!badge) return;
+  if(requests.length > 0){
+    badge.style.display = 'flex';
+    badge.textContent = requests.length > 99 ? '99+' : String(requests.length);
+  }else{
+    badge.style.display = 'none';
+  }
 }
 
 function topbarHTML(){
+  const subtitle = state.view === 'home' ? 'كل ما تحتاجه في مكان واحد'
+                  : state.view === 'requests' ? 'طلبات العملاء'
+                  : esc(CATEGORIES[state.cat].name);
   return `
   <header class="topbar">
     <div class="brand" id="brandHome" tabindex="0" role="button" aria-label="الصفحة الرئيسية">
       <span class="brand-mark">م</span>
-      <span>شركة المالك للتسويق العقاري<small>${state.view==='home' ? 'كل ما تحتاجه في مكان واحد' : esc(CATEGORIES[state.cat].name)}</small></span>
+      <span>شركة المالك للتسويق العقاري<small>${subtitle}</small></span>
     </div>
     ${state.view==='category' ? `<div class="crumb">الرئيسية <b>›</b> <b>${esc(CATEGORIES[state.cat].name)}</b></div>` : ''}
+    ${state.view==='requests' ? `<div class="crumb">الرئيسية <b>›</b> <b>المطلوب</b></div>` : ''}
   </header>`;
 }
 
@@ -792,6 +929,82 @@ function categoryHTML(){
   `;
 }
 
+function requestsFiltered(){
+  let items = requests.slice();
+  if(state.reqFilter !== 'all') items = items.filter(r => r.reqType === state.reqFilter);
+  const q = (state.reqQ || '').trim();
+  if(q) items = items.filter(r => (r.name||'').includes(q) || (r.phone||'').includes(q) || (r.region||'').includes(q) || (r.details||'').includes(q));
+  return items.slice().sort((a,b) => b.createdAt - a.createdAt);
+}
+
+function requestsHTML(){
+  const items = requestsFiltered();
+  return `
+  <div class="section-head">
+    <div class="section-title" style="color:var(--gold)">
+      <span class="cat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a5 5 0 0 0-5 5v3.5c0 .8-.3 1.6-.9 2.2L4.5 15.5A1 1 0 0 0 5.2 17h13.6a1 1 0 0 0 .7-1.7l-1.6-1.8c-.6-.6-.9-1.4-.9-2.2V8a5 5 0 0 0-5-5Z"/><path d="M9.5 20a2.5 2.5 0 0 0 5 0"/></svg></span>
+      المطلوب — طلبات العملاء
+    </div>
+    <button class="btn btn-ghost" id="backBtn">‹ رجوع للرئيسية</button>
+  </div>
+
+  <div class="toolbar">
+    <div class="search-box">
+      <input type="text" id="reqSearchInput" placeholder="ابحث بالاسم أو الرقم أو المنطقة…" value="${esc(state.reqQ)}">
+    </div>
+    <button class="btn btn-primary" id="addReqBtn">+ إضافة طلب</button>
+  </div>
+
+  <div id="reqBody">${reqBodyHTML()}</div>
+  `;
+}
+
+function reqBodyHTML(){
+  const items = requestsFiltered();
+  return `
+  <div class="toolbar" style="margin-top:12px;">
+    <div class="filter-pills">
+      <button class="pill ${state.reqFilter==='all'?'active':''}" data-reqfilter="all">الكل</button>
+      ${REQUEST_TYPES.map(t => `<button class="pill ${state.reqFilter===t.value?'active':''}" data-reqfilter="${t.value}">${esc(t.label)}</button>`).join('')}
+    </div>
+  </div>
+
+  <div class="result-count">${items.length} طلب</div>
+
+  ${items.length ? `<div class="listings">${items.map(requestCardHTML).join('')}</div>` : `
+  <div class="empty-state">
+    <h3>لسه مفيش طلبات مسجّلة</h3>
+    <p>اضغط "إضافة طلب" وسجّل اللي العميل طالبه، وهيظهرلك تلقائيًا أي عقار متاح يطابقه.</p>
+  </div>`}
+  `;
+}
+
+function requestCardHTML(r){
+  const rt = REQUEST_TYPES.find(t => t.value === r.reqType);
+  const matches = matchingListingsForRequest(r);
+  return `
+  <article class="property-card" data-id="${r.id}">
+    <div class="card-tab plain">
+      <span>${esc(rt ? rt.label : '')}</span>
+      <span>#${esc(r.id.slice(-4))}</span>
+    </div>
+    <div class="card-body">
+      <div class="card-region">${esc(r.name)}</div>
+      <div class="card-address">📍 ${esc(r.region)}</div>
+      ${matches.length ? `<div class="req-match">🔔 يوجد ${matches.length} عقار متاح مطابق الآن</div>` : ''}
+      <div class="card-meta">
+        <div style="grid-column:1/-1;"><b>رقم التليفون</b>${esc(r.phone)}</div>
+      </div>
+      ${r.details ? `<div class="card-desc">${esc(r.details)}</div>` : ''}
+    </div>
+    <div class="card-actions">
+      <button class="card-delete" data-reqdel="${r.id}">حذف</button>
+      <button class="card-edit" data-reqedit="${r.id}">تعديل</button>
+      <button class="card-call" data-call="${esc(r.phone)}">اتصال</button>
+    </div>
+  </article>`;
+}
+
 function propertyCardHTML(l, showCat){
   const c = CATEGORIES[l.cat];
   const typeObj = c.hasType ? (c.types.find(t => t.value === l.type) || c.types[0]) : null;
@@ -852,7 +1065,7 @@ async function copyListingDetails(id){
       copied = true;
     }catch(err){ copied = false; }
   }
-  if(!copied){
+    if(!copied){
     try{
       const ta = document.createElement('textarea');
       ta.value = text;
@@ -893,8 +1106,8 @@ function showCopyFallbackModal(text){
   ta.value = text;
   ta.focus();
   ta.select();
-}
-
+    }
+   
 function mediaHTML(l){
   if(l.mediaType === 'video'){
     return `<video class="card-media" src="${l.media}" controls muted playsinline></video>`;
@@ -918,11 +1131,69 @@ function footerHTML(){
       <button type="button" id="restoreBtn">⬆ استرجاع نسخة احتياطية</button>
       <input type="file" id="restoreFileInput" accept="application/json" style="display:none;">
     </div>
+    <div class="site-ad">
+      تصميم وتطوير: المهندس أحمد إسماعيل —
+      <a href="tel:01501306464">01501306464</a>
+    </div>
   </footer>`;
 }
 
 /* ---------- نافذة إضافة / تعديل عقار ---------- */
 let editingId = null;
+let editingReqId = null;
+
+function openAddReqModal(item){
+  editingReqId = item ? item.id : null;
+  const isEdit = !!item;
+
+  const overlay = document.createElement('div');
+  overlay.className = 'overlay';
+  overlay.id = 'overlay';
+  overlay.innerHTML = `
+    <div class="modal" role="dialog" aria-modal="true" aria-label="${isEdit ? 'تعديل طلب' : 'إضافة طلب'}">
+      <div class="modal-head">
+        <h2>${isEdit ? 'تعديل' : 'إضافة'} طلب عميل</h2>
+        <button class="modal-close" id="closeModal" aria-label="إغلاق">×</button>
+      </div>
+      <form class="modal-body" id="reqForm" novalidate>
+        <div class="field" id="rf-name">
+          <label>اسم العميل</label>
+          <input type="text" name="name" placeholder="الاسم بالكامل" value="${esc(item?.name || '')}">
+          <div class="field-error">اكتب اسم العميل</div>
+        </div>
+
+        <div class="field" id="rf-phone">
+          <label>رقم التليفون</label>
+          <input type="tel" name="phone" placeholder="01xxxxxxxxx" value="${esc(item?.phone || '')}">
+          <div class="field-error">اكتب رقم تليفون صحيح (01 و11 رقم)</div>
+        </div>
+
+        <div class="field" id="rf-region">
+          <label>المنطقة المطلوبة</label>
+          <input type="text" name="region" placeholder="مثال: مدينة نصر" value="${esc(item?.region || '')}">
+          <div class="field-error">اكتب المنطقة</div>
+        </div>
+
+        <div class="field" id="rf-type">
+          <label>نوع الطلب</label>
+          <select name="reqType">
+            ${REQUEST_TYPES.map(t => `<option value="${t.value}" ${(item ? item.reqType === t.value : false) ? 'selected' : ''}>${esc(t.label)}</option>`).join('')}
+          </select>
+        </div>
+
+        <div class="field" id="rf-details">
+          <label>تفاصيل المطلوب</label>
+          <textarea name="details" rows="3" placeholder="مثال: عايز شقة 3 غرف تشطيب سوبر لوكس، دور تالت أو رابع">${esc(item?.details || '')}</textarea>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost" id="cancelAdd">إلغاء</button>
+          <button type="submit" class="btn btn-primary">${isEdit ? 'حفظ التعديلات' : 'حفظ الطلب'}</button>
+        </div>
+      </form>
+    </div>`;
+  document.body.appendChild(overlay);
+}
 
 function openAddModal(item){
   const cat = item ? item.cat : state.cat;
@@ -1014,6 +1285,7 @@ function closeModal(){
   const ov = document.getElementById('overlay');
   if(ov) ov.remove();
   editingId = null;
+  editingReqId = null;
 }
 
 async function onAddSubmit(e){
@@ -1103,7 +1375,85 @@ async function handleAddSubmit(e){
   saveListings();
   closeModal();
   render();
-  showToast(wasEditing ? 'تم حفظ التعديلات' : 'تم إضافة العقار بنجاح');
+
+  if(!wasEditing){
+    const matches = matchingRequestsForListing(item);
+    showToast(matches.length
+      ? `🔔 في ${matches.length} طلب عميل مطابق للعقار ده — افتح "المطلوب" لعرضهم`
+      : 'تم إضافة العقار بنجاح');
+  }else{
+    showToast('تم حفظ التعديلات');
+  }
+}
+
+/* ---------- حفظ / تعديل طلب عميل ---------- */
+async function onReqSubmit(e){
+  e.preventDefault();
+  try{
+    handleReqSubmit(e);
+  }catch(err){
+    console.error('reqForm error:', err);
+    showToast('حصلت مشكلة أثناء الحفظ، حاول تاني');
+  }
+}
+
+function handleReqSubmit(e){
+  const form = e.target;
+  const data = Object.fromEntries(new FormData(form).entries());
+  const wasEditing = !!editingReqId;
+
+  const required = ['name','phone','region'];
+  let valid = true;
+  required.forEach(key => {
+    const field = document.getElementById('rf-' + key);
+    const ok = (data[key] || '').trim().length > 0;
+    if(!ok) valid = false;
+    field.classList.toggle('invalid', !ok);
+  });
+  const cleanPhone = (data.phone||'').replace(/[\s-]/g,'');
+  const phoneOk = /^0[0-9]{9,10}$/.test(cleanPhone);
+  if(!phoneOk){
+    valid = false;
+    document.getElementById('rf-phone').classList.add('invalid');
+  }
+  if(!valid){
+    showToast('في بيانات ناقصة أو غلط، راجع الحقول المظلّلة بالأحمر');
+    return;
+  }
+  data.phone = cleanPhone;
+
+  const existing = wasEditing ? requests.find(r => r.id === editingReqId) : null;
+  const item = {
+    id: wasEditing ? editingReqId : uid(),
+    name: data.name.trim(),
+    phone: data.phone.trim(),
+    region: data.region.trim(),
+    reqType: data.reqType,
+    details: (data.details || '').trim(),
+    createdAt: existing ? existing.createdAt : Date.now()
+  };
+
+  if(wasEditing){
+    const idx = requests.findIndex(r => r.id === editingReqId);
+    if(idx > -1) requests[idx] = item;
+  }else{
+    requests.unshift(item);
+  }
+  saveRequests();
+  closeModal();
+  render();
+  showToast(wasEditing ? 'تم حفظ التعديلات' : 'تم إضافة الطلب بنجاح');
+}
+
+function deleteRequest(id){
+  const item = requests.find(r => r.id === id);
+  if(!item) return;
+  const ok = confirm(`هل تريد حذف طلب "${item.name}"؟ لا يمكن التراجع عن هذا الإجراء.`);
+  if(!ok) return;
+  requests = requests.filter(r => r.id !== id);
+  saveRequests();
+  render();
+  showToast('تم حذف الطلب');
 }
 
 /* ---------- حذف ---------- */
@@ -1198,6 +1548,30 @@ document.addEventListener('click', (e) => {
   const addBtn = e.target.closest('#addBtn');
   if(addBtn){ openAddModal(null); return; }
 
+  const reqFab = e.target.closest('#requestsFab');
+  if(reqFab){ goRequests(); return; }
+
+  const addReqBtn = e.target.closest('#addReqBtn');
+  if(addReqBtn){ openAddReqModal(null); return; }
+
+  const reqFilterBtn = e.target.closest('[data-reqfilter]');
+  if(reqFilterBtn){
+    state.reqFilter = reqFilterBtn.dataset.reqfilter;
+    const body = document.getElementById('reqBody');
+    if(body) body.innerHTML = reqBodyHTML();
+    return;
+  }
+
+  const reqDelBtn = e.target.closest('[data-reqdel]');
+  if(reqDelBtn){ deleteRequest(reqDelBtn.dataset.reqdel); return; }
+
+  const reqEditBtn = e.target.closest('[data-reqedit]');
+  if(reqEditBtn){
+    const item = requests.find(r => r.id === reqEditBtn.dataset.reqedit);
+    if(item) openAddReqModal(item);
+    return;
+  }
+
   const searchBtn = e.target.closest('#homeSearchBtn');
   if(searchBtn){
     const input = document.getElementById('homeSearchInput');
@@ -1255,6 +1629,11 @@ document.addEventListener('input', (e) => {
     state.homeQ = e.target.value;
     document.getElementById('homeResults').innerHTML = homeResultsHTML();
   }
+  if(e.target.id === 'reqSearchInput'){
+    state.reqQ = e.target.value;
+    const body = document.getElementById('reqBody');
+    if(body) body.innerHTML = reqBodyHTML();
+  }
 });
 
 document.addEventListener('change', (e) => {
@@ -1274,6 +1653,7 @@ document.addEventListener('keydown', (e) => {
 
 document.addEventListener('submit', (e) => {
   if(e.target && e.target.id === 'addForm'){ onAddSubmit(e); }
+  if(e.target && e.target.id === 'reqForm'){ onReqSubmit(e); }
 });
 
 /* ---------- تشغيل ---------- */
@@ -1282,3 +1662,5 @@ render();
 </script>
 </body>
 </html>
+
+  
