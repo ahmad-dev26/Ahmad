@@ -552,7 +552,7 @@ input, select{font-family:inherit;}
   color:#6B6858;
   cursor:pointer;
   transition:all .15s ease;
-  
+   }
 .type-toggle input{display:none;}
 .type-toggle input:checked + span{color:inherit;}
 .type-toggle label:has(input:checked){
@@ -1002,7 +1002,8 @@ function requestCardHTML(r){
       <button class="card-edit" data-reqedit="${r.id}">تعديل</button>
       <button class="card-call" data-call="${esc(r.phone)}">اتصال</button>
     </div>
-  </article>`;}
+  </article>`;
+}
 
 function propertyCardHTML(l, showCat){
   const c = CATEGORIES[l.cat];
@@ -1105,7 +1106,7 @@ function showCopyFallbackModal(text){
   ta.value = text;
   ta.focus();
   ta.select();
-  }
+}
 function mediaHTML(l){
   if(l.mediaType === 'video'){
     return `<video class="card-media" src="${l.media}" controls muted playsinline></video>`;
