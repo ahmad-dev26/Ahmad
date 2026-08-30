@@ -552,7 +552,7 @@ input, select{font-family:inherit;}
   color:#6B6858;
   cursor:pointer;
   transition:all .15s ease;
-   }
+}
 .type-toggle input{display:none;}
 .type-toggle input:checked + span{color:inherit;}
 .type-toggle label:has(input:checked){
@@ -566,7 +566,7 @@ input, select{font-family:inherit;}
   margin-top:6px;
 }
 .modal-footer .btn{flex:1;}
-
+   
 .field-error{
   font-family:var(--data);
   font-size:12px;
@@ -724,12 +724,12 @@ const ICONS = {
 
 /* ---------- بيانات تجريبية أولية ---------- */
 const SEED = [
-  {id:'s1', cat:'flats', type:'sale', region:'مدينة نصر، الحي السابع', area:'150', price:'2,400,000', owner:'أحمد فتحي', phone:'01012345678'},
-  {id:'s2', cat:'flats', type:'rent', region:'المهندسين، شارع البطل أحمد عبدالعزيز', area:'110', price:'12,000 / شهريًا', owner:'منى الشريف', phone:'01123456789'},
-  {id:'s3', cat:'shops', type:'sale', region:'وسط البلد، شارع طلعت حرب', area:'45', price:'3,100,000', owner:'كريم يوسف', phone:'01234567890'},
-  {id:'s4', cat:'shops', type:'rent', region:'الدقي، شارع مصدق', area:'60', price:'18,000 / شهريًا', owner:'سامية عبدالله', phone:'01555555555'},
-  {id:'s5', cat:'houses', region:'6 أكتوبر، الحي المتميز', area:'400', price:'6,500,000', owner:'محمود سعيد', phone:'01098765432'},
-  {id:'s6', cat:'land', type:'cordon', region:'طريق الفيوم الزراعي', area:'5', price:'900,000 / فدان', owner:'عبدالرحمن جمال', phone:'01187654321'}
+  {id:'s1', code:1, cat:'flats', type:'sale', region:'مدينة نصر، الحي السابع', area:'150', price:'2,400,000', owner:'أحمد فتحي', phone:'01012345678'},
+  {id:'s2', code:2, cat:'flats', type:'rent', region:'المهندسين، شارع البطل أحمد عبدالعزيز', area:'110', price:'12,000 / شهريًا', owner:'منى الشريف', phone:'01123456789'},
+  {id:'s3', code:3, cat:'shops', type:'sale', region:'وسط البلد، شارع طلعت حرب', area:'45', price:'3,100,000', owner:'كريم يوسف', phone:'01234567890'},
+  {id:'s4', code:4, cat:'shops', type:'rent', region:'الدقي، شارع مصدق', area:'60', price:'18,000 / شهريًا', owner:'سامية عبدالله', phone:'01555555555'},
+  {id:'s5', code:5, cat:'houses', region:'6 أكتوبر، الحي المتميز', area:'400', price:'6,500,000', owner:'محمود سعيد', phone:'01098765432'},
+  {id:'s6', code:6, cat:'land', type:'cordon', region:'طريق الفيوم الزراعي', area:'5', price:'900,000 / فدان', owner:'عبدالرحمن جمال', phone:'01187654321'}
 ];
 
 /* ---------- الحالة ---------- */
@@ -747,6 +747,40 @@ function loadListings(){
 function saveListings(){
   try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(listings)); }catch(e){}
 }
+
+/* ---------- كود العقار (م1، م2، م3...) ---------- */
+const CODE_COUNTER_KEY = 'almalek_code_counter_v1';
+
+function loadCodeCounter(){
+  try{
+    const raw = localStorage.getItem(CODE_COUNTER_KEY);
+    if(raw) return parseInt(raw, 10) || 0;
+  }catch(e){}
+  return listings.reduce((max, l) => Math.max(max, l.code || 0), 0);
+}
+let codeCounter = loadCodeCounter();
+function saveCodeCounter(){
+  try{ localStorage.setItem(CODE_COUNTER_KEY, String(codeCounter)); }catch(e){}
+}
+function nextListingCode(){
+  codeCounter += 1;
+  saveCodeCounter();
+  return codeCounter;
+}
+function codeLabel(l){
+  return l && l.code ? `M${l.code}` : '';
+}
+/* ترقيم أي عقارات قديمة اتحفظت قبل إضافة الكود */
+(function migrateMissingCodes(){
+  let changed = false;
+  listings.forEach(l => {
+    if(!l.code){
+      l.code = nextListingCode();
+      changed = true;
+    }
+  });
+  if(changed) saveListings();
+})();
 
 /* ---------- المطلوب (طلبات العملاء) ---------- */
 const REQUESTS_STORAGE_KEY = 'almalek_requests_v1';
@@ -1015,7 +1049,7 @@ function propertyCardHTML(l, showCat){
   <article class="property-card" data-id="${l.id}">
     <div class="card-tab ${tabClass}">
       <span>${showCat ? esc(c.name) + ' · ' : ''}${esc(tabLabel)}</span>
-      <span>#${esc(l.id.slice(-4))}</span>
+      <span>${esc(codeLabel(l))}</span>
     </div>
     ${l.media ? mediaHTML(l) : ''}
     <div class="card-body">
@@ -1038,18 +1072,19 @@ function propertyCardHTML(l, showCat){
     </div>
   </article>`;
 }
-
 function listingDetailsText(l){
   const c = CATEGORIES[l.cat];
   const typeObj = c.hasType ? (c.types.find(t => t.value === l.type) || c.types[0]) : null;
   const lines = [];
   lines.push(`🏠 ${c.name}${typeObj ? ' — ' + typeObj.label : ''}`);
+  lines.push(`🔖 الكود: ${codeLabel(l)}`);
   lines.push(`📍 المنطقة: ${l.region}`);
   if(l.address) lines.push(`🗺️ العنوان بالتفصيل: ${l.address}`);
   lines.push(`📐 المساحة: ${l.area} ${c.unit}`);
   if(l.floor) lines.push(`🏢 الدور: ${l.floor}`);
   lines.push(`💰 السعر: ${l.price}`);
   if(l.description) lines.push(`📝 الوصف: ${l.description}`);
+  lines.push(`📞 للتواصل: المهندس رجب عسل - 01000149972`);
   return lines.join('\n');
 }
 
@@ -1098,7 +1133,7 @@ function showCopyFallbackModal(text){
       </div>
       <div class="modal-body">
         <p style="font-size:13px;color:#54514A;margin-bottom:10px;line-height:1.6;">النص متحدد تلقائيًا — اضغطي مطولاً عليه واختاري "نسخ"، أو "تحديد الكل" ثم "نسخ" لو محتاجة:</p>
-        <textarea id="copyFallbackText" readonly rows="10" style="width:100%;padding:12px;border:1.5px solid var(--line);border-radius:4px;font-size:13px;line-height:1.7;font-family:var(--body);"></textarea>
+                <textarea id="copyFallbackText" readonly rows="10" style="width:100%;padding:12px;border:1.5px solid var(--line);border-radius:4px;font-size:13px;line-height:1.7;font-family:var(--body);"></textarea>
       </div>
     </div>`;
   document.body.appendChild(overlay);
@@ -1107,6 +1142,7 @@ function showCopyFallbackModal(text){
   ta.focus();
   ta.select();
 }
+
 function mediaHTML(l){
   if(l.mediaType === 'video'){
     return `<video class="card-media" src="${l.media}" controls muted playsinline></video>`;
@@ -1351,6 +1387,7 @@ async function handleAddSubmit(e){
 
   const item = {
     id: wasEditing ? editingId : uid(),
+    code: wasEditing ? existing.code : nextListingCode(),
     cat,
     type: c.hasType ? (data.type || c.types[0].value) : undefined,
     region: data.region.trim(),
@@ -1504,6 +1541,9 @@ function importBackup(file){
       if(!ok) return;
 
       listings = incoming;
+      listings.forEach(l => { if(l.code && l.code > codeCounter) codeCounter = l.code; });
+      saveCodeCounter();
+      listings.forEach(l => { if(!l.code) l.code = nextListingCode(); });
       saveListings();
       render();
       showToast('تم استرجاع النسخة الاحتياطية بنجاح');
