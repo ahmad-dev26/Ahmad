@@ -1,9 +1,0 @@
-<div id="surprise" style="position:fixed;inset:0;z-index:99999;background:#000;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:opacity .6s">
-  <img src="surprise.jpg" alt="" style="max-width:100%;max-height:100%;object-fit:contain">
-</div>
-<script>
-  const s = document.getElementById('surprise');
-  const close = () => { s.style.opacity = 0; setTimeout(() => s.remove(), 600); };
-  s.onclick = close;
-  setTimeout(close, 6000);
-</script>
